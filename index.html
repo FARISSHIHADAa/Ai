@@ -94,8 +94,6 @@
     </footer>
 
     <script>
-        const apiKey = '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'; 
-
         document.getElementById('generateBtn').addEventListener('click', async () => {
             const description = document.getElementById('description').value;
 
@@ -110,29 +108,20 @@
 
         async function generateHTML(description) {
             try {
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                const response = await fetch('/generate-html', {  // Change the endpoint to match your backend
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`,
                     },
-                    body: JSON.stringify({
-                        model: 'gpt-3.5-turbo',  // Using GPT-3.5 Turbo model
-                        messages: [{
-                            role: 'user',
-                            content: `Generate an HTML code for the following webpage description: ${description}`,
-                        }],
-                        max_tokens: 500,
-                    }),
+                    body: JSON.stringify({ description }),
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
-                    return data.choices[0].message.content.trim();  // Return the HTML code
+                    return data.htmlCode;
                 } else {
-                    console.error('Error:', data);
-                    return `Error: ${data.error.message}`;
+                    return `Error: ${data.error}`;
                 }
             } catch (error) {
                 console.error('Error generating HTML:', error);
