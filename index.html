@@ -3,131 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>AI HTML Code Generator</title>
+    <title>Drone AI Demo</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
-        }
-
-        header {
-            background-color: #2c3e50;
-            color: white;
-            text-align: center;
-            padding: 20px;
-        }
-
-        main {
-            padding: 20px;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        textarea {
-            width: 100%;
-            height: 100px;
-            margin: 20px 0;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            resize: vertical;
-        }
-
-        button {
-            padding: 10px 20px;
-            background-color: #27ae60;
-            color: white;
-            font-size: 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        button:hover {
-            background-color: #2ecc71;
-        }
-
-        #generatedCode {
-            margin-top: 40px;
-        }
-
-        pre {
-            background-color: #2d3436;
-            color: #ecf0f1;
-            padding: 20px;
-            border-radius: 5px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
+        body { margin: 0; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
-    <header>
-        <h1>AI HTML Code Generator</h1>
-        <p>Tell me what you want in a webpage, and I’ll generate the HTML for you!</p>
-    </header>
-
-    <main>
-        <section>
-            <textarea id="description" placeholder="Describe the webpage you want..."></textarea>
-            <button id="generateBtn">Generate HTML</button>
-        </section>
-
-        <section id="generatedCode">
-            <h2>Generated HTML Code</h2>
-            <pre id="htmlOutput"></pre>
-        </section>
-    </main>
-
-    <footer>
-        <p>Powered by OpenAI API</p>
-    </footer>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <script>
-        document.getElementById('generateBtn').addEventListener('click', async () => {
-            const description = document.getElementById('description').value;
+        let scene, camera, renderer, droneMesh;
+        let model;
+        
+        // Initialize Three.js scene
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
 
-            if (!description) {
-                alert('Please provide a description for the webpage!');
-                return;
-            }
+            // Create a simple drone mesh (cube)
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            droneMesh = new THREE.Mesh(geometry, material);
+            scene.add(droneMesh);
 
-            const response = await generateHTML(description);
-            document.getElementById('htmlOutput').textContent = response;
-        });
+            camera.position.z = 5;
 
-        async function generateHTML(description) {
-            try {
-                const response = await fetch('/generate-html', {  // Change the endpoint to match your backend
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ description }),
-                });
+            // Load the Coco-SSD model
+            cocoSsd.load().then((loadedModel) => {
+                model = loadedModel;
+                detectObjects();
+            });
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    return data.htmlCode;
-                } else {
-                    return `Error: ${data.error}`;
-                }
-            } catch (error) {
-                console.error('Error generating HTML:', error);
-                return 'Error generating HTML. Please try again later.';
-            }
+            animate();
         }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            droneMesh.rotation.x += 0.01;
+            droneMesh.rotation.y += 0.01;
+            renderer.render(scene, camera);
+        }
+
+        // Object detection using TensorFlow.js
+        async function detectObjects() {
+            const videoElement = document.createElement('video');
+            videoElement.width = 640;
+            videoElement.height = 480;
+            videoElement.autoplay = true;
+
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            videoElement.srcObject = stream;
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            document.body.appendChild(canvas);
+            canvas.width = 640;
+            canvas.height = 480;
+
+            function detect() {
+                context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                model.detect(canvas).then(predictions => {
+                    predictions.forEach(prediction => {
+                        context.beginPath();
+                        context.rect(prediction.bbox[0], prediction.bbox[1], prediction.bbox[2], prediction.bbox[3]);
+                        context.lineWidth = 2;
+                        context.strokeStyle = 'red';
+                        context.fillStyle = 'red';
+                        context.stroke();
+                        context.fillText(prediction.class, prediction.bbox[0], prediction.bbox[1] > 10 ? prediction.bbox[1] - 5 : 10);
+                    });
+                    requestAnimationFrame(detect);
+                });
+            }
+            detect();
+        }
+
+        // Initialize the demo
+        init();
     </script>
 </body>
 </html>
