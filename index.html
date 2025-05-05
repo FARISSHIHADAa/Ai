@@ -72,12 +72,12 @@
     dirLight.position.set(5, 10, 7.5);
     scene.add(dirLight);
 
-    // Drone model: replace this with your own GLTF model if you have one
+    // Drone model: a more realistic cube placeholder (you can later replace with actual drone model)
     const drone = new THREE.Mesh(
-      new THREE.BoxGeometry(1,0.3,1),
-      new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.7, roughness: 0.2 })
+      new THREE.BoxGeometry(1, 0.5, 1),  // Changed to better resemble a drone
+      new THREE.MeshStandardMaterial({ color: 0x008080, metalness: 0.8, roughness: 0.4 })
     );
-    drone.position.y = 1.5;
+    drone.position.set(0, 1.5, 0);
     scene.add(drone);
 
     // ---- Video + TF.js Object Detection ----
@@ -105,7 +105,7 @@
     function animate() {
       requestAnimationFrame(animate);
 
-      // Drone rotation
+      // Rotate the drone based on user input
       if (rotating) {
         drone.rotation.y += parseFloat(speedInput.value);
       }
@@ -113,7 +113,7 @@
       // Render 3D scene
       renderer.render(scene, camera);
 
-      // Draw video + detection
+      // Draw video + object detection on top
       vctx.drawImage(video, 0, 0, videoCanvas.width, videoCanvas.height);
       model.detect(video).then(preds => {
         vctx.lineWidth = 2; vctx.strokeStyle = '#e74c3c'; vctx.fillStyle = '#e74c3c';
