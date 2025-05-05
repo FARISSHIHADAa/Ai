@@ -5,27 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drone AI Demo</title>
     <style>
-        body { margin: 0; }
+        body { margin: 0; overflow: hidden; }
         canvas { display: block; }
+        #videoCanvas { position: absolute; top: 0; left: 0; }
+        .controls { position: absolute; top: 10px; left: 10px; z-index: 10; color: white; }
+        .button { background: rgba(0, 0, 0, 0.5); border: none; padding: 10px; margin: 5px; cursor: pointer; }
+        .button:hover { background: rgba(0, 0, 0, 0.7); }
     </style>
 </head>
 <body>
+    <div class="controls">
+        <button class="button" onclick="toggleDroneMovement()">Toggle Drone Movement</button>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    
     <script>
-        let scene, camera, renderer, droneMesh;
+        // Global variables
+        let scene, camera, renderer, droneMesh, droneMoving = true;
+        let videoElement, context, canvas;
         let model;
         
-        // Initialize Three.js scene
+        // Initialize the 3D environment (Three.js)
         function init() {
+            // Set up Three.js scene
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer();
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // Create a simple drone mesh (cube)
+            // Create drone model (cube)
             const geometry = new THREE.BoxGeometry(1, 1, 1);
             const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
             droneMesh = new THREE.Mesh(geometry, material);
@@ -33,10 +45,10 @@
 
             camera.position.z = 5;
 
-            // Load the Coco-SSD model
+            // Load the TensorFlow object detection model
             cocoSsd.load().then((loadedModel) => {
                 model = loadedModel;
-                detectObjects();
+                initVideoFeed();
             });
 
             animate();
@@ -45,14 +57,18 @@
         // Animation loop
         function animate() {
             requestAnimationFrame(animate);
-            droneMesh.rotation.x += 0.01;
-            droneMesh.rotation.y += 0.01;
+            
+            if (droneMoving) {
+                droneMesh.rotation.x += 0.01;
+                droneMesh.rotation.y += 0.01;
+            }
+            
             renderer.render(scene, camera);
         }
 
-        // Object detection using TensorFlow.js
-        async function detectObjects() {
-            const videoElement = document.createElement('video');
+        // Initialize video feed for object detection
+        async function initVideoFeed() {
+            videoElement = document.createElement('video');
             videoElement.width = 640;
             videoElement.height = 480;
             videoElement.autoplay = true;
@@ -60,31 +76,42 @@
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             videoElement.srcObject = stream;
 
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
+            // Create a canvas for the video feed and object detection
+            canvas = document.createElement('canvas');
+            context = canvas.getContext('2d');
             document.body.appendChild(canvas);
             canvas.width = 640;
             canvas.height = 480;
 
-            function detect() {
-                context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-                model.detect(canvas).then(predictions => {
-                    predictions.forEach(prediction => {
-                        context.beginPath();
-                        context.rect(prediction.bbox[0], prediction.bbox[1], prediction.bbox[2], prediction.bbox[3]);
-                        context.lineWidth = 2;
-                        context.strokeStyle = 'red';
-                        context.fillStyle = 'red';
-                        context.stroke();
-                        context.fillText(prediction.class, prediction.bbox[0], prediction.bbox[1] > 10 ? prediction.bbox[1] - 5 : 10);
-                    });
-                    requestAnimationFrame(detect);
-                });
-            }
-            detect();
+            // Detect objects from the video feed
+            detectObjects();
         }
 
-        // Initialize the demo
+        // Detect objects in the video feed using TensorFlow.js
+        async function detectObjects() {
+            context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            const predictions = await model.detect(canvas);
+
+            // Draw bounding boxes and labels around detected objects
+            predictions.forEach(prediction => {
+                context.beginPath();
+                context.rect(prediction.bbox[0], prediction.bbox[1], prediction.bbox[2], prediction.bbox[3]);
+                context.lineWidth = 2;
+                context.strokeStyle = 'red';
+                context.fillStyle = 'red';
+                context.stroke();
+                context.fillText(prediction.class, prediction.bbox[0], prediction.bbox[1] > 10 ? prediction.bbox[1] - 5 : 10);
+            });
+
+            requestAnimationFrame(detectObjects);
+        }
+
+        // Toggle drone movement (start/stop rotation)
+        function toggleDroneMovement() {
+            droneMoving = !droneMoving;
+        }
+
+        // Initialize the app
         init();
     </script>
 </body>
